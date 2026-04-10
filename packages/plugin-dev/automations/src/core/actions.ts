@@ -126,15 +126,7 @@ export const ActionWebhook: IAutomationAction = {
     // Sanitize event data to avoid leaking all task details
     const sanitizedEvent = {
       type: event.type,
-      task: event.task
-        ? {
-            id: event.task.id,
-            title: event.task.title,
-            projectId: event.task.projectId,
-            isDone: event.task.isDone,
-            tagIds: event.task.tagIds,
-          }
-        : undefined,
+      task: event.task,
     };
 
     try {
