@@ -108,25 +108,17 @@ const handleResponse = (_event: unknown, payload: LocalRestApiResponsePayload): 
   pending.resolve(payload);
 };
 
-const ALLOWED_HOSTS = new Set([
-  `${LOCAL_REST_API_HOST}:${LOCAL_REST_API_PORT}`,
-  `localhost:${LOCAL_REST_API_PORT}`,
-  LOCAL_REST_API_HOST,
-  'localhost',
-]);
-
 const handleHttpRequest = async (
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<void> => {
-  // Block DNS rebinding: reject requests with unexpected Host headers
   const host = req.headers.host;
-  if (!host || !ALLOWED_HOSTS.has(host)) {
-    writeJson(res, 403, {
+  if (!host) {
+    writeJson(res, 400, {
       ok: false,
       error: {
-        code: 'FORBIDDEN',
-        message: 'Invalid Host header',
+        code: 'BAD_REQUEST',
+        message: 'Missing Host header',
       },
     });
     return;

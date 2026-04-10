@@ -2,8 +2,6 @@
 name: Close Stale Discussions
 
 'on':
-  schedule:
-    - cron: '0 0 * * *'
   workflow_dispatch:
     inputs:
       days-before-close:

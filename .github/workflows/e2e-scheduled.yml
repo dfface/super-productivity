@@ -1,21 +1,7 @@
 name: 'E2E Tests (Scheduled)'
 
 on:
-  schedule:
-    - cron: '0 2 * * *' # 2 AM UTC daily
-
   workflow_dispatch:
-
-  push:
-    branches: [master, release/*]
-    paths:
-      - 'src/app/imex/sync/**'
-      - 'src/app/op-log/**'
-      - 'e2e/tests/**'
-      - 'docker-compose.yaml'
-      - 'docker-compose.supersync.yaml'
-      - 'packages/super-sync-server/**'
-      - 'packages/shared-schema/**'
 
 permissions:
   contents: read

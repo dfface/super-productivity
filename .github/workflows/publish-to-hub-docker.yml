@@ -2,8 +2,6 @@
 name: Publish Docker image To hub.docker
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs: {}
 

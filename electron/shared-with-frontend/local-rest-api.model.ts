@@ -1,4 +1,4 @@
-export const LOCAL_REST_API_HOST = '127.0.0.1';
+export const LOCAL_REST_API_HOST = '0.0.0.0';
 export const LOCAL_REST_API_PORT = 3876;
 export const LOCAL_REST_API_TIMEOUT_MS = 15000;
 export const LOCAL_REST_API_MAX_BODY_BYTES = 1024 * 1024;

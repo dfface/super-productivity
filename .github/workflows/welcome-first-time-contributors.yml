@@ -1,12 +1,7 @@
 name: Welcome first time contributors
 
 on:
-  pull_request_target:
-    types:
-      - opened
-  issues:
-    types:
-      - opened
+  workflow_dispatch:
 
 permissions:
   issues: write

@@ -2,18 +2,7 @@
 name: Wiki Update
 
 'on':
-  pull_request:
-    branches: [master, main]
-    paths:
-      - 'docs/wiki/**'
-      - .github/workflows/wiki-sync.yml
-      - .github/annotations/wiki-lint-problem-matcher.json
-  push:
-    branches: [master, main]
-    paths:
-      - 'docs/wiki/**'
-      - .github/workflows/wiki-sync.yml
-      - .github/annotations/wiki-lint-problem-matcher.json
+  workflow_dispatch:
 
 concurrency:
   group: wiki
