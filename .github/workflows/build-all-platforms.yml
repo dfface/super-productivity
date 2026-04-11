@@ -36,9 +36,19 @@ jobs:
           git config --global url."https://github.com/".insteadOf
           ssh://git@github.com/
           
+          
       - name: Install npm Packages
         run: npm i
 
+      - name: Install Playwright Browsers
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright install-deps chromium
+
+      - name: Install Snapcraft
+        uses: samuelmeuli/action-snapcraft@fceeb3c308e76f3487e72ef608618de625fb7fe8 # v3
+
+      - run: npm run env # Generate env.generated.ts
       - name: Install Playwright Browsers
         run: |
           npx playwright install --with-deps chromium
@@ -57,7 +67,6 @@ jobs:
           build_script_name: empty
           github_token: ${{ secrets.github_token }}
           release: false
-          args: '--linux --linux-target=appimage,deb,rpm'
 
     #   - name: Upload Linux Artifacts
     #     uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -228,24 +237,13 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Build Android (Production)
-        run: npm run dist:android:prod
-
-      - name: List Android build outputs
-        run: ls -la android/app/build/outputs/apk/release/
-
-      - name: Upload Android Artifacts
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: android-builds
-          path: |
-            android/app/build/outputs/apk/release/*.apk
-          if-no-files-found: error
+      - name: Build Android (Debug)
+        run: npm run dist:android
 
       - name: Upload to Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: android/app/build/outputs/apk/release/*.apk
+          files: android/app/build/outputs/apk/debug/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
