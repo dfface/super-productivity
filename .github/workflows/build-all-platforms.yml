@@ -35,32 +35,29 @@ jobs:
         run: >
           git config --global url."https://github.com/".insteadOf
           ssh://git@github.com/
-      - name: Get npm cache directory
-        id: npm-cache-dir
-        run: |
-          echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
-      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        id: npm-cache
-        with:
-          path: ${{ steps.npm-cache-dir.outputs.dir }}
-          key: ${{ runner.os }}-node22-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node22-
+          
       - name: Install npm Packages
         run: npm i
 
-      - run: npm run env
+      - name: Install Playwright Browsers
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright install-deps chromium
+
+      - name: Install Snapcraft
+        uses: samuelmeuli/action-snapcraft@fceeb3c308e76f3487e72ef608618de625fb7fe8 # v3
+
+      - run: npm run env # Generate env.generated.ts
 
       - name: Build Frontend & Electron
         run: npm run build
-
       - name: Build Electron app (Linux)
         uses: johannesjo/action-electron-builder@9ea9e2d991c97668843d57337848e3e2b1ffab3d # v1
         with:
           build_script_name: empty
           github_token: ${{ secrets.github_token }}
           release: false
-          args: '--linux'
+          args: '--linux --linux-target=appimage,deb,rpm'
 
     #   - name: Upload Linux Artifacts
     #     uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -105,21 +102,6 @@ jobs:
         run: >
           git config --global url."https://github.com/".insteadOf
           ssh://git@github.com/
-      - name: Get npm cache directory
-        id: npm-cache-dir
-        shell: bash
-        run: |
-          echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
-      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        id: npm-cache
-        with:
-          path: ${{ steps.npm-cache-dir.outputs.dir }}
-          key: ${{ runner.os }}-node22-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node22-
-      - name: Workaround for nx issue
-        run: npm install @nx/nx-win32-x64-msvc
-
       - name: Install npm Packages
         run: npm i
 
@@ -172,17 +154,6 @@ jobs:
         run: >
           git config --global url."https://github.com/".insteadOf
           ssh://git@github.com/
-      - name: Get npm cache directory
-        id: npm-cache-dir
-        run: |
-          echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
-      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        id: npm-cache
-        with:
-          path: ${{ steps.npm-cache-dir.outputs.dir }}
-          key: ${{ runner.os }}-node22-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node22-
       - name: Workaround for nx issue and dmg licence issue
         run: npm install @nx/nx-darwin-arm64 dmg-license
 
@@ -222,5 +193,59 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  android-build:
+    runs-on: ubuntu-latest
+    env:
+      UNSPLASH_KEY: ${{ secrets.UNSPLASH_KEY }}
+      UNSPLASH_CLIENT_ID: ${{ secrets.UNSPLASH_CLIENT_ID }}
+
+    steps:
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 22
+
+      - name: Check out Git repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event.inputs.branch }}
+          persist-credentials: false
+
+      - name: Reconfigure git to use HTTP authentication
+        run: >
+          git config --global url."https://github.com/".insteadOf
+          ssh://git@github.com/
+      - name: Install npm Packages
+        run: npm i
+
+      - run: npm run env
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Build Android (Production)
+        run: npm run dist:android:prod
+
+      - name: List Android build outputs
+        run: ls -la android/app/build/outputs/apk/release/
+
+      - name: Upload Android Artifacts
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: android-builds
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: android/app/build/outputs/apk/release/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
