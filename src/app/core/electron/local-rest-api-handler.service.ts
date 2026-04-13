@@ -5,6 +5,7 @@ import { Task, TaskWithSubTasks } from '../../features/tasks/task.model';
 import { TaskArchiveService } from '../../features/archive/task-archive.service';
 import { ProjectService } from '../../features/project/project.service';
 import { TagService } from '../../features/tag/tag.service';
+import { SyncWrapperService } from '../../imex/sync/sync-wrapper.service';
 import {
   LocalRestApiRequestPayload,
   LocalRestApiResponsePayload,
@@ -98,6 +99,7 @@ export class LocalRestApiHandlerService {
   private readonly _taskArchiveService = inject(TaskArchiveService);
   private readonly _projectService = inject(ProjectService);
   private readonly _tagService = inject(TagService);
+  private readonly _syncWrapperService = inject(SyncWrapperService);
   private _isInitialized = false;
 
   init(): void {
@@ -168,6 +170,14 @@ export class LocalRestApiHandlerService {
 
     if (method === 'GET' && path === '/tags') {
       return this._handleListTags(requestId, query);
+    }
+
+    if (method === 'POST' && path === '/sync') {
+      return this._handleSync(requestId);
+    }
+
+    if (method === 'GET' && path === '/sync/status') {
+      return this._handleGetSyncStatus(requestId);
     }
 
     return createErrorResponse(requestId, 404, 'NOT_FOUND', 'Route not found');
@@ -461,5 +471,38 @@ export class LocalRestApiHandlerService {
       (await firstValueFrom(this._taskService.getByIdWithSubTaskData$(taskId))) ||
       undefined
     );
+  }
+
+  private async _handleSync(requestId: string): Promise<LocalRestApiResponsePayload> {
+    try {
+      const syncResult = await this._syncWrapperService.sync();
+      return createSuccessResponse(requestId, 200, {
+        success: true,
+        result: syncResult,
+      });
+    } catch (error) {
+      return createErrorResponse(
+        requestId,
+        500,
+        'SYNC_ERROR',
+        error instanceof Error ? error.message : 'Sync failed',
+      );
+    }
+  }
+
+  private async _handleGetSyncStatus(requestId: string): Promise<LocalRestApiResponsePayload> {
+    const [isSyncInProgress, isEnabledAndReady, hasNoPendingOps, isConfirmedInSync] = await Promise.all([
+        Promise.resolve(this._syncWrapperService.isSyncInProgressSync()),
+        firstValueFrom(this._syncWrapperService.isEnabledAndReady$),
+        firstValueFrom(this._syncWrapperService.hasNoPendingOps$),
+        firstValueFrom(this._syncWrapperService.superSyncIsConfirmedInSync$),
+    ]);
+
+    return createSuccessResponse(requestId, 200, {
+      isSyncInProgress,
+      isEnabledAndReady,
+      hasNoPendingOps,
+      isConfirmedInSync,
+    });
   }
 }

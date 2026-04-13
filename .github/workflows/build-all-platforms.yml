@@ -67,6 +67,7 @@ jobs:
           build_script_name: empty
           github_token: ${{ secrets.github_token }}
           release: false
+          args: '--linux --publish never'
 
     #   - name: Upload Linux Artifacts
     #     uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -244,6 +245,6 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: android/app/build/outputs/apk/debug/*.apk
+          files: android/app/build/outputs/apk/**/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
