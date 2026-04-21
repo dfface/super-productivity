@@ -19,6 +19,10 @@ import {
   MissingRefreshTokenAPIError,
   HttpNotOkAPIError,
   EmptyRemoteBodySPError,
+  JsonParseError,
+  LegacySyncFormatDetectedError,
+  SyncDataCorruptedError,
+  UploadRevToMatchMismatchAPIError,
 } from '../../op-log/core/errors/sync-errors';
 import { MAX_LWW_REUPLOAD_RETRIES } from '../../op-log/core/operation-log.const';
 import { SyncConfig } from '../../features/config/global-config.model';
@@ -601,13 +605,53 @@ export class SyncWrapperService {
         });
         return 'HANDLED_ERROR';
       } else if (error instanceof EmptyRemoteBodySPError) {
-        // Remote file returned empty body (e.g. Koofr WebDAV corrupted file).
-        // Force overwrite is safe here: local data is intact, remote is empty.
+        // Remote file returned an empty body (e.g. Koofr WebDAV corrupted file).
+        // Force overwrite is safe: local data is intact, remote is empty.
         this._providerManager.setSyncStatus('ERROR');
         this._snackService.open({
           msg: T.F.SYNC.S.ERROR_REMOTE_FILE_EMPTY,
           type: 'ERROR',
           config: { duration: 12000 },
+          actionFn: async () => this.forceUpload(),
+          actionStr: T.F.SYNC.S.BTN_FORCE_OVERWRITE,
+        });
+        return 'HANDLED_ERROR';
+      } else if (error instanceof JsonParseError) {
+        // Remote JSON is unparseable (e.g. truncated write, encoding issue).
+        // Force overwrite is safe: local data is intact, remote cannot be parsed.
+        // Issues: #5574, #4616.
+        this._providerManager.setSyncStatus('ERROR');
+        this._snackService.open({
+          msg: T.F.SYNC.S.ERROR_REMOTE_FILE_CORRUPTED,
+          type: 'ERROR',
+          config: { duration: 12000 },
+          actionFn: async () => this.forceUpload(),
+          actionStr: T.F.SYNC.S.BTN_FORCE_OVERWRITE,
+        });
+        return 'HANDLED_ERROR';
+      } else if (error instanceof SyncDataCorruptedError) {
+        // Remote file format version is incompatible (could be older or newer than local).
+        // Do NOT offer force-upload: if remote is newer, overwriting would destroy newer data.
+        // Users should ensure all devices run the same app version.
+        this._providerManager.setSyncStatus('ERROR');
+        this._snackService.open({
+          msg: T.F.SYNC.S.ERROR_SYNC_VERSION_MISMATCH,
+          type: 'ERROR',
+          config: { duration: 12000 },
+        });
+        return 'HANDLED_ERROR';
+      } else if (error instanceof LegacySyncFormatDetectedError) {
+        // Remote has v16.x pfapi files (__meta_) but no sync-data.json. Usual cause:
+        // an old device still writing the legacy format, which would silently diverge
+        // from this client. Force-overwrite is offered as an escape hatch for the
+        // stale-__meta_ case (successful migration but old files never cleaned up);
+        // it drops any remaining v16 data in favor of the current local state.
+        // Issues: #5964, #6174.
+        this._providerManager.setSyncStatus('ERROR');
+        this._snackService.open({
+          msg: T.F.SYNC.S.LEGACY_FORMAT_DETECTED,
+          type: 'ERROR',
+          config: { duration: 20000 },
           actionFn: async () => this.forceUpload(),
           actionStr: T.F.SYNC.S.BTN_FORCE_OVERWRITE,
         });
@@ -678,6 +722,16 @@ export class SyncWrapperService {
           type: 'ERROR',
           config: { duration: 12000 },
         });
+        return 'HANDLED_ERROR';
+      } else if (error instanceof UploadRevToMatchMismatchAPIError) {
+        // Another client uploaded between our download and upload — self-healing.
+        // The next sync cycle will download their ops first, then upload successfully.
+        // Do not show an error snackbar; just mark as UNKNOWN_OR_CHANGED so the
+        // next sync cycle triggers and resolves the state.
+        SyncLog.log(
+          'SyncWrapperService: Concurrent upload detected, will retry on next sync cycle',
+        );
+        this._providerManager.setSyncStatus('UNKNOWN_OR_CHANGED');
         return 'HANDLED_ERROR';
       } else {
         this._providerManager.setSyncStatus('ERROR');
